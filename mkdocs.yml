@@ -1,0 +1,134 @@
+site_name: Galyarder Route
+site_description: Self-hosted routing layer for AI-native operations, agent fleets, model aliases, and provider policy.
+site_url: https://galyarderlabs.github.io/galyarder-route/
+repo_url: https://github.com/galyarderlabs/galyarder-route
+repo_name: galyarderlabs/galyarder-route
+edit_uri: edit/main/docs/
+exclude_docs: |
+  i18n/**
+
+validation:
+  nav:
+    omitted_files: ignore
+    not_found: ignore
+    absolute_links: ignore
+  links:
+    not_found: ignore
+    absolute_links: ignore
+    unrecognized_links: ignore
+    anchors: ignore
+
+theme:
+  name: material
+  custom_dir: docs/overrides
+  logo: assets/logo.svg
+  favicon: assets/logo.svg
+  features:
+    - announce.dismiss
+    - content.action.edit
+    - content.code.annotate
+    - content.code.copy
+    - content.tooltips
+    - navigation.indexes
+    - navigation.instant
+    - navigation.instant.prefetch
+    - navigation.instant.progress
+    - navigation.path
+    - navigation.sections
+    - navigation.tabs
+    - navigation.tabs.sticky
+    - navigation.top
+    - navigation.tracking
+    - search.highlight
+    - search.share
+    - search.suggest
+    - toc.follow
+  palette:
+    - media: "(prefers-color-scheme)"
+      toggle:
+        icon: material/brightness-auto
+        name: Use system preference
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: black
+      accent: teal
+      toggle:
+        icon: material/weather-night
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: black
+      accent: teal
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to light mode
+
+nav:
+  - Home: index.md
+  - Getting Started: SETUP_GUIDE.md
+  - User Guide: USER_GUIDE.md
+  - Features: FEATURES.md
+  - Architecture: ARCHITECTURE.md
+  - API Reference: API_REFERENCE.md
+  - Agent Workflows:
+      - CLI Tools: CLI-TOOLS.md
+      - MCP Server: MCP-SERVER.md
+      - A2A Server: A2A-SERVER.md
+      - Internationalization: I18N.md
+      - PWA Guide: PWA_GUIDE.md
+  - Routing And Resilience:
+      - Auto Combo: AUTO-COMBO.md
+      - Resilience Guide: RESILIENCE_GUIDE.md
+      - Proxy Guide: PROXY_GUIDE.md
+      - Free Tiers: FREE_TIERS.md
+  - Compression:
+      - Compression Guide: COMPRESSION_GUIDE.md
+      - RTK Compression: RTK_COMPRESSION.md
+      - Compression Engines: COMPRESSION_ENGINES.md
+      - Compression Rules Format: COMPRESSION_RULES_FORMAT.md
+      - Compression Language Packs: COMPRESSION_LANGUAGE_PACKS.md
+  - Deployment:
+      - Environment: ENVIRONMENT.md
+      - Docker Guide: DOCKER_GUIDE.md
+      - VM Deployment: VM_DEPLOYMENT_GUIDE.md
+      - Fly.io Deployment: FLY_IO_DEPLOYMENT_GUIDE.md
+      - Termux Guide: TERMUX_GUIDE.md
+      - Uninstall: UNINSTALL.md
+  - Operations:
+      - Troubleshooting: TROUBLESHOOTING.md
+      - Release Checklist: RELEASE_CHECKLIST.md
+      - Coverage Plan: COVERAGE_PLAN.md
+      - RFC Auto Assessment: RFC-AUTO-ASSESSMENT.md
+  - Development:
+      - Codebase Documentation: CODEBASE_DOCUMENTATION.md
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - def_list
+  - footnotes
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.details
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+
+plugins:
+  - search:
+      lang: en
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/galyarderlabs/galyarder-route
+
+copyright: "Copyright 2026 Galyarder Labs."
+
+extra_css:
+  - styles/extra.css

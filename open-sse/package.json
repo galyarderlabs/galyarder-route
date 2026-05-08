@@ -1,0 +1,13 @@
+{
+  "name": "@galyarder-route/open-sse",
+  "version": "3.7.9",
+  "description": "Express SSE sidecar for Galyarder Route — handles streaming, protocol translation, and provider orchestration",
+  "type": "module",
+  "main": "index.js",
+  "types": "types.d.ts",
+  "private": true,
+  "exports": {
+    ".": "./index.js",
+    "./*": "./*"
+  }
+}

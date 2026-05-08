@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-labelledby="title desc">
+  <title id="title">Galyarder Route</title>
+  <desc id="desc">Galyarder Route mark</desc>
+  <rect width="128" height="128" rx="28" fill="#0d1117"/>
+  <path d="M34 38h34c16 0 28 11 28 26S84 90 68 90H34V75h33c7 0 12-4 12-11s-5-11-12-11H34V38Z" fill="#f8fafc"/>
+  <path d="M40 64h53" stroke="#2dd4bf" stroke-width="10" stroke-linecap="round"/>
+  <path d="M83 48l18 16-18 16" fill="none" stroke="#2dd4bf" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
