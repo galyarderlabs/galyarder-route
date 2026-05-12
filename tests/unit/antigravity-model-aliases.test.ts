@@ -59,7 +59,7 @@ test("AntigravityExecutor.transformRequest resolves alias models before dispatch
   assert.equal(result.model, "gemini-3.1-pro-high");
 });
 
-test("AntigravityExecutor.transformRequest keeps Claude bridge output cap and strips unsupported thinking", async () => {
+test("AntigravityExecutor.transformRequest sends Claude bridge as Gemini-shaped Cloud Code request", async () => {
   const executor = new AntigravityExecutor();
   const bridged = openaiToAntigravityRequest(
     "claude-sonnet-4-6",
@@ -76,6 +76,9 @@ test("AntigravityExecutor.transformRequest keeps Claude bridge output cap and st
     projectId: "project-1",
   });
 
-  assert.equal(result.request.max_tokens, 16_384);
-  assert.equal(result.request.thinking, undefined);
+  assert.equal(result.request.max_tokens, undefined);
+  assert.equal(result.request.messages, undefined);
+  assert.equal(result.request.generationConfig.maxOutputTokens, 16_384);
+  assert.equal(result.request.generationConfig.thinkingConfig, undefined);
+  assert.deepEqual(result.request.contents, [{ role: "user", parts: [{ text: "Hello" }] }]);
 });

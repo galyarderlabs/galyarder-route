@@ -3,7 +3,6 @@ import { FORMATS } from "../formats.ts";
 import { DEFAULT_THINKING_GEMINI_SIGNATURE } from "../../config/defaultThinkingSignature.ts";
 import { ANTIGRAVITY_DEFAULT_SYSTEM } from "../../config/constants.ts";
 import { resolveGeminiThoughtSignature } from "../../services/geminiThoughtSignatureStore.ts";
-import { openaiToClaudeRequestForAntigravity } from "./openai-to-claude.ts";
 import {
   capMaxOutputTokens,
   capThinkingBudget,
@@ -27,9 +26,7 @@ import {
 import { buildGeminiTools, sanitizeGeminiToolName } from "../helpers/geminiToolsSanitizer.ts";
 
 // Observed Antigravity wrapper output cap, not an underlying model capability.
-// Keep this bridge-local: capMaxOutputTokens() falls back to GalyarderRoute's generic
-// 8192 default for unknown Claude-family IDs, while Antigravity currently caps
-// visible output around 16K. See: https://github.com/keisksw/antigravity-output-analysis
+// Keep this bridge-local because the Claude IDs here are Antigravity model aliases.
 const ANTIGRAVITY_CLAUDE_MAX_OUTPUT_TOKENS = 16_384;
 
 type GeminiPart = Record<string, unknown>;
@@ -58,7 +55,7 @@ type GeminiFunctionDeclaration = {
 type GeminiRequest = {
   model: string;
   contents?: GeminiContent[];
-  [key: string]: any;
+  [key: string]: unknown;
   generationConfig: GeminiGenerationConfig;
   safetySettings: unknown;
   systemInstruction?: GeminiContent;
@@ -81,7 +78,7 @@ type CloudCodeEnvelope = {
     session_id?: string;
     sessionId?: string;
     contents?: GeminiContent[];
-    [key: string]: any;
+    [key: string]: unknown;
     systemInstruction?: GeminiContent;
     generationConfig: GeminiGenerationConfig;
     tools?: Array<{
@@ -471,62 +468,30 @@ function getAntigravityClaudeOutputTokens(body: Record<string, unknown>): number
   return ANTIGRAVITY_CLAUDE_MAX_OUTPUT_TOKENS;
 }
 
-function wrapInCloudCodeEnvelopeForClaude(
-  model,
-  claudeRequest,
-  credentials = null,
-  sourceBody = {}
-) {
-  let projectId = credentials?.projectId;
+function applyAntigravityClaudeGenerationLimits(model, geminiCLI, body) {
+  if (
+    !String(model || "")
+      .toLowerCase()
+      .includes("claude")
+  )
+    return geminiCLI;
 
-  if (!projectId) {
-    console.warn(
-      `[GalyarderRoute] Antigravity/Claude account is missing projectId. ` +
-        `Attempting request with empty project — reconnect OAuth to resolve.`
-    );
-    projectId = "";
-  }
-
-  const cleanModel = model.includes("/") ? model.split("/").pop()! : model;
-
-  // Keep Antigravity's default and caller-provided system rules
-  let systemText = ANTIGRAVITY_DEFAULT_SYSTEM;
-  if (claudeRequest.system) {
-    if (Array.isArray(claudeRequest.system)) {
-      const texts = claudeRequest.system.map((b) => b.text).filter(Boolean);
-      if (texts.length > 0) systemText += "\n" + texts.join("\n");
-    } else if (typeof claudeRequest.system === "string") {
-      systemText += "\n" + claudeRequest.system;
-    }
-  }
-
-  const envelope: CloudCodeEnvelope = {
-    project: projectId,
-    model: cleanModel,
-    userAgent: "antigravity",
-    requestId: `agent-${generateUUID()}`,
-    requestType: "agent",
-    request: {
-      ...claudeRequest,
-      system: systemText,
-      max_tokens: getAntigravityClaudeOutputTokens(sourceBody),
-      sessionId: generateSessionId(),
+  return {
+    ...geminiCLI,
+    generationConfig: {
+      ...geminiCLI.generationConfig,
+      maxOutputTokens: getAntigravityClaudeOutputTokens(body || {}),
     },
   };
-
-  return envelope;
 }
 
 // OpenAI -> Antigravity (Sandbox Cloud Code with wrapper)
 export function openaiToAntigravityRequest(model, body, stream, credentials = null) {
-  const isClaude = model.toLowerCase().includes("claude");
-
-  if (isClaude) {
-    const claudeRequest = openaiToClaudeRequestForAntigravity(model, body, stream);
-    return wrapInCloudCodeEnvelopeForClaude(model, claudeRequest, credentials, body);
-  }
-
-  const geminiCLI = openaiToGeminiCLIRequest(model, body, stream);
+  const geminiCLI = applyAntigravityClaudeGenerationLimits(
+    model,
+    openaiToGeminiCLIRequest(model, body, stream),
+    body
+  );
   return wrapInCloudCodeEnvelope(model, geminiCLI, credentials, true);
 }
 

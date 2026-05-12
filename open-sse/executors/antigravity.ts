@@ -264,7 +264,8 @@ export class AntigravityExecutor extends BaseExecutor {
     // Antigravity accounts may have more stable project IDs, but the risk exists.
     const bodyProjectId = body?.project;
     const credentialsProjectId = credentials?.projectId;
-    const allowBodyProjectOverride = process.env.GALYARDER_ROUTE_ALLOW_BODY_PROJECT_OVERRIDE === "1";
+    const allowBodyProjectOverride =
+      process.env.GALYARDER_ROUTE_ALLOW_BODY_PROJECT_OVERRIDE === "1";
 
     // Default: prefer OAuth-stored projectId over incoming body.project to avoid
     // stale/wrong client-side values causing 404/403 from Cloud Code endpoints.
@@ -635,7 +636,7 @@ export class AntigravityExecutor extends BaseExecutor {
 
         log?.debug?.(
           "TELEMETRY",
-          `[Antigravity] Execute - URL: ${url}, Model: ${model}, Target: ${(transformedBody as any)?.model || "unknown"}, RetryAttempt: ${retryAttemptsByUrl[urlIndex]}`
+          `[Antigravity] Execute - URL: ${url}, Model: ${model}, Target: ${typeof transformedBody.model === "string" ? transformedBody.model : "unknown"}, RetryAttempt: ${retryAttemptsByUrl[urlIndex]}`
         );
 
         const response = await fetch(url, {
