@@ -92,6 +92,8 @@ export type CountTokensInput = {
   signal?: AbortSignal | null;
 };
 
+const DEFAULT_TRANSFORM_TIMEOUT_MS = 60_000;
+
 /** Apply model-level extra upstream headers (e.g. Authentication, X-Custom-Auth). */
 export function mergeUpstreamExtraHeaders(
   headers: Record<string, string>,
@@ -189,6 +191,10 @@ export class BaseExecutor {
       return FETCH_TIMEOUT_MS;
     }
     return Math.max(1, Math.floor(configured));
+  }
+
+  getTransformTimeoutMs() {
+    return Math.min(this.getTimeoutMs(), DEFAULT_TRANSFORM_TIMEOUT_MS);
   }
 
   buildUrl(
@@ -306,6 +312,39 @@ export class BaseExecutor {
     }
 
     return body;
+  }
+
+  async transformRequestWithTimeout(
+    model: string,
+    body: unknown,
+    stream: boolean,
+    credentials: ProviderCredentials
+  ): Promise<unknown> {
+    const timeoutMs = this.getTransformTimeoutMs();
+    const transformPromise = Promise.resolve().then(() =>
+      this.transformRequest(model, body, stream, credentials)
+    );
+
+    if (typeof timeoutMs !== "number" || !Number.isFinite(timeoutMs) || timeoutMs <= 0) {
+      return await transformPromise;
+    }
+
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      timeoutId = setTimeout(() => {
+        const timeoutError = new Error(
+          `Transform timeout after ${timeoutMs}ms for ${this.provider}/${model}`
+        );
+        timeoutError.name = "TimeoutError";
+        reject(timeoutError);
+      }, timeoutMs);
+    });
+
+    try {
+      return await Promise.race([transformPromise, timeoutPromise]);
+    } finally {
+      if (timeoutId) clearTimeout(timeoutId);
+    }
   }
 
   shouldRetry(status: number, urlIndex: number) {
@@ -463,7 +502,21 @@ export class BaseExecutor {
         appendAnthropicBetaHeader(headers, CONTEXT_1M_BETA_HEADER);
       }
 
-      const transformedBody = await this.transformRequest(model, body, stream, activeCredentials);
+      let transformedBody: unknown;
+      try {
+        transformedBody = await this.transformRequestWithTimeout(
+          model,
+          body,
+          stream,
+          activeCredentials
+        );
+      } catch (error) {
+        const err = error instanceof Error ? error : new Error(String(error));
+        if (err.name === "TimeoutError") {
+          log?.warn?.("TIMEOUT", err.message);
+        }
+        throw err;
+      }
 
       try {
         // Only enforce the timeout while waiting for the initial fetch() response.
@@ -556,7 +609,10 @@ export class BaseExecutor {
           if (!tb.metadata || typeof tb.metadata !== "object") {
             tb.metadata = {
               user_id: JSON.stringify({
-                device_id: createHash("sha256").update("galyarder-route").digest("hex").slice(0, 24),
+                device_id: createHash("sha256")
+                  .update("galyarder-route")
+                  .digest("hex")
+                  .slice(0, 24),
                 account_uuid: "",
                 session_id: randomUUID(),
               }),
@@ -692,7 +748,10 @@ export class BaseExecutor {
         // Distinguish timeout errors from other abort errors
         const err = error instanceof Error ? error : new Error(String(error));
         if (err.name === "TimeoutError") {
-          log?.warn?.("TIMEOUT", `Fetch timeout after ${this.getTimeoutMs()}ms on ${url}`);
+          log?.warn?.(
+            "TIMEOUT",
+            err.message || `Fetch timeout after ${this.getTimeoutMs()}ms on ${url}`
+          );
         }
         lastError = err;
         if (urlIndex + 1 < fallbackCount) {

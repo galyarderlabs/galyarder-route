@@ -251,6 +251,44 @@ test("GeminiCLIExecutor.refreshProject onboards a managed project when loadCodeA
   }
 });
 
+test("GeminiCLIExecutor.refreshProject only tries request-path onboarding once", async () => {
+  const executor = new GeminiCLIExecutor();
+  const originalFetch = globalThis.fetch;
+  const calls: CapturedFetchCall[] = [];
+
+  globalThis.fetch = async (url, init: RequestInit = {}) => {
+    calls.push({ url: String(url), body: parseInitBody(init) });
+
+    if (String(url).endsWith("loadCodeAssist")) {
+      return new Response(
+        JSON.stringify({
+          allowedTiers: [{ id: "free-tier", isDefault: true }],
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    if (String(url).endsWith("onboardUser")) {
+      return new Response(JSON.stringify({ done: false }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
+    throw new Error(`Unexpected URL: ${url}`);
+  };
+
+  try {
+    assert.equal(await executor.refreshProject("access-token-one-shot"), null);
+    assert.deepEqual(
+      calls.map((call) => call.url.split(":").at(-1)),
+      ["loadCodeAssist", "onboardUser"]
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test("GeminiCLIExecutor.onboardManagedProject retries until completion", async () => {
   const executor = new GeminiCLIExecutor();
   const originalFetch = globalThis.fetch;
@@ -337,10 +375,10 @@ test("GeminiCLIExecutor.execute applies CLI fingerprint to the final Cloud Code 
       });
     }
 
-    return new Response(
-      'data: {"candidates":[{"content":{"parts":[{"text":"ok"}]}}]}\n\n',
-      { status: 200, headers: { "Content-Type": "text/event-stream" } }
-    );
+    return new Response('data: {"candidates":[{"content":{"parts":[{"text":"ok"}]}}]}\n\n', {
+      status: 200,
+      headers: { "Content-Type": "text/event-stream" },
+    });
   };
 
   try {
@@ -371,10 +409,7 @@ test("GeminiCLIExecutor.execute applies CLI fingerprint to the final Cloud Code 
     assert.equal(finalBody.project, "project-live");
     assert.match(finalBody.user_prompt_id, /^agent-/);
     assert.match(finalBody.request.session_id, /^-\d+$/);
-    assert.match(
-      finalCall.headers["User-Agent"],
-      /^GeminiCLI\/0\.40\.1\/gemini-3\.1-pro-preview /
-    );
+    assert.match(finalCall.headers["User-Agent"], /^GeminiCLI\/0\.40\.1\/gemini-3\.1-pro-preview /);
     assert.equal(finalCall.headers.Accept, "*/*");
   } finally {
     setCliCompatProviders([]);

@@ -918,6 +918,50 @@ test("BaseExecutor.execute returns response metadata and merges headers", async 
   }
 });
 
+test("BaseExecutor.execute times out a stuck transformRequest before fetch", async () => {
+  class StuckTransformExecutor extends TestExecutor {
+    getTransformTimeoutMs() {
+      return 20;
+    }
+
+    async transformRequest() {
+      return await new Promise(() => {});
+    }
+  }
+
+  const executor = new StuckTransformExecutor({ baseUrls: ["https://single.example/v1/chat"] });
+  const originalFetch = globalThis.fetch;
+  let fetchCalled = false;
+  const timeoutLogs = [];
+
+  globalThis.fetch = async () => {
+    fetchCalled = true;
+    return new Response("should not fetch", { status: 200 });
+  };
+
+  try {
+    await assert.rejects(
+      executor.execute({
+        model: "gpt-4.1",
+        body: {},
+        stream: false,
+        credentials: {},
+        log: { warn: (tag, message) => timeoutLogs.push({ tag, message }) },
+      }),
+      (error) => {
+        assert.equal((error as Error).name, "TimeoutError");
+        assert.match((error as Error).message, /Transform timeout after 20ms/);
+        return true;
+      }
+    );
+
+    assert.equal(fetchCalled, false);
+    assert.equal(timeoutLogs[0]?.tag, "TIMEOUT");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test("BaseExecutor.execute refreshes credentials before the request when needed", async () => {
   class RefreshingExecutor extends BaseExecutor {
     constructor() {

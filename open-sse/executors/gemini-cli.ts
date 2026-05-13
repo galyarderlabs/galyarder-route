@@ -17,6 +17,9 @@ const LOAD_CODE_ASSIST_TIMEOUT_MS = 10_000; // 10 seconds timeout
 const ONBOARD_TIMEOUT_MS = 30_000;
 const ONBOARD_MAX_ATTEMPTS = 10;
 const ONBOARD_DELAY_MS = 5_000;
+const PROJECT_REFRESH_TOTAL_TIMEOUT_MS = 15_000;
+const PROJECT_REFRESH_ONBOARD_TIMEOUT_MS = 4_000;
+const GEMINI_CLI_TRANSFORM_TIMEOUT_MS = 20_000;
 const DEFAULT_PROJECT_ID = "default-project";
 const DEFAULT_ONBOARD_TIER = "free-tier";
 const LOAD_CODE_ASSIST_METADATA = Object.freeze({
@@ -42,6 +45,7 @@ type LoadCodeAssistResponse = {
 type OnboardOptions = {
   attempts?: number;
   delayMs?: number;
+  timeoutMs?: number;
 };
 
 function normalizeGeminiModel(model: string): string {
@@ -114,9 +118,28 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string): Promise<T> {
+  let timeoutId: ReturnType<typeof setTimeout> | null = null;
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    timeoutId = setTimeout(() => {
+      const error = new Error(message);
+      error.name = "TimeoutError";
+      reject(error);
+    }, timeoutMs);
+  });
+
+  return Promise.race([promise, timeoutPromise]).finally(() => {
+    if (timeoutId) clearTimeout(timeoutId);
+  });
+}
+
 export class GeminiCLIExecutor extends BaseExecutor {
   constructor() {
     super("gemini-cli", PROVIDERS["gemini-cli"]);
+  }
+
+  getTransformTimeoutMs() {
+    return Math.min(super.getTransformTimeoutMs(), GEMINI_CLI_TRANSFORM_TIMEOUT_MS);
   }
 
   buildUrl(model, stream, urlIndex = 0) {
@@ -126,7 +149,12 @@ export class GeminiCLIExecutor extends BaseExecutor {
     return `${this.config.baseUrl}:${action}`;
   }
 
-  buildHeaders(credentials, stream = true, clientHeaders?: Record<string, string> | null, model?: string) {
+  buildHeaders(
+    credentials,
+    stream = true,
+    clientHeaders?: Record<string, string> | null,
+    model?: string
+  ) {
     void clientHeaders;
     const raw = getGeminiCliHeaders(
       normalizeGeminiModel(model || "unknown"),
@@ -153,6 +181,12 @@ export class GeminiCLIExecutor extends BaseExecutor {
       options.delayMs >= 0
         ? options.delayMs
         : ONBOARD_DELAY_MS;
+    const timeoutMs =
+      typeof options.timeoutMs === "number" &&
+      Number.isFinite(options.timeoutMs) &&
+      options.timeoutMs > 0
+        ? options.timeoutMs
+        : ONBOARD_TIMEOUT_MS;
 
     const requestBody = {
       tierId: tierId || DEFAULT_ONBOARD_TIER,
@@ -162,7 +196,7 @@ export class GeminiCLIExecutor extends BaseExecutor {
     for (let attempt = 0; attempt < attempts; attempt += 1) {
       try {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), ONBOARD_TIMEOUT_MS);
+        const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
         let response;
         try {
@@ -221,7 +255,17 @@ export class GeminiCLIExecutor extends BaseExecutor {
     const inflight = inflightRefresh.get(accessToken);
     if (inflight) return inflight;
 
-    const promise = this._doRefresh(accessToken, model);
+    const promise = withTimeout(
+      this._doRefresh(accessToken, model),
+      PROJECT_REFRESH_TOTAL_TIMEOUT_MS,
+      `Gemini CLI project refresh timed out after ${PROJECT_REFRESH_TOTAL_TIMEOUT_MS}ms`
+    ).catch((error) => {
+      const msg = error instanceof Error ? error.message : String(error);
+      console.warn(
+        `[GalyarderRoute] project refresh failed (${msg}) — falling back to stored projectId`
+      );
+      return null;
+    });
     inflightRefresh.set(accessToken, promise);
     try {
       return await promise;
@@ -264,7 +308,16 @@ export class GeminiCLIExecutor extends BaseExecutor {
         console.warn(
           "[GalyarderRoute] loadCodeAssist returned no project — attempting managed project onboarding"
         );
-        projectId = await this.onboardManagedProject(accessToken, extractDefaultTierId(data), {}, currentModel);
+        projectId = await this.onboardManagedProject(
+          accessToken,
+          extractDefaultTierId(data),
+          {
+            attempts: 1,
+            delayMs: 0,
+            timeoutMs: PROJECT_REFRESH_ONBOARD_TIMEOUT_MS,
+          },
+          currentModel
+        );
       }
 
       if (!projectId) {
@@ -279,7 +332,9 @@ export class GeminiCLIExecutor extends BaseExecutor {
       return projectId;
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);
-      console.warn(`[GalyarderRoute] loadCodeAssist failed (${msg}) — falling back to stored projectId`);
+      console.warn(
+        `[GalyarderRoute] loadCodeAssist failed (${msg}) — falling back to stored projectId`
+      );
       return null;
     }
   }
@@ -287,9 +342,7 @@ export class GeminiCLIExecutor extends BaseExecutor {
   async transformRequest(model, body, stream, credentials) {
     const currentModel = normalizeGeminiModel(model);
     const normalizedBody =
-      shouldStripCloudCodeThinking(this.provider, currentModel) &&
-      body &&
-      typeof body === "object"
+      shouldStripCloudCodeThinking(this.provider, currentModel) && body && typeof body === "object"
         ? stripCloudCodeThinkingConfig(body)
         : body;
 
