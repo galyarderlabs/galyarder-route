@@ -35,6 +35,18 @@ test("resolveModelAlias: resolves deprecated OpenAI model", () => {
   assert.equal(resolveModelAlias("gpt-3.5-turbo-0125"), "gpt-3.5-turbo");
 });
 
+test("resolveModelAlias: preserves explicit provider scope for cross-provider aliases", () => {
+  assert.equal(resolveModelAlias("claude-opus-4.6"), "github/claude-opus-4.6");
+  assert.equal(
+    resolveModelAlias("claude-opus-4.6", { provider: "kiro", providerAlias: "kr" }),
+    "claude-opus-4.6"
+  );
+  assert.equal(
+    resolveModelAlias("claude-opus-4.6", { provider: "github", providerAlias: "gh" }),
+    "github/claude-opus-4.6"
+  );
+});
+
 test("resolveModelAlias: handles null/empty", () => {
   assert.equal(resolveModelAlias(""), "");
   assert.equal(resolveModelAlias(null), null);

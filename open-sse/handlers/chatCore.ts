@@ -1175,14 +1175,20 @@ export async function handleChatCore({
   // Custom aliases take priority over built-in and must be resolved here so the
   // downstream getModelTargetFormat() lookup AND the actual provider request use
   // the correct, aliased model ID. Without this, aliases only affect format detection.
-  const resolvedModel = resolveModelAlias(model);
+  const alias = PROVIDER_ID_TO_ALIAS[provider] || provider;
+  const unscopedResolvedModel = resolveModelAlias(model);
+  const resolvedModel = resolveModelAlias(model, { provider, providerAlias: alias });
   // Use resolvedModel for all downstream operations (routing, provider requests, logging)
   const effectiveModel = resolvedModel !== model ? resolvedModel : model;
   if (resolvedModel !== model) {
     log?.info?.("ALIAS", `Model alias applied: ${model} → ${resolvedModel}`);
+  } else if (unscopedResolvedModel !== model) {
+    log?.info?.(
+      "ALIAS",
+      `Skipped cross-provider alias for ${provider}: ${model} → ${unscopedResolvedModel}`
+    );
   }
 
-  const alias = PROVIDER_ID_TO_ALIAS[provider] || provider;
   const modelTargetFormat = getModelTargetFormat(alias, resolvedModel);
   const targetFormat =
     modelTargetFormat || getTargetFormat(provider, credentials?.providerSpecificData);
@@ -1356,7 +1362,7 @@ export async function handleChatCore({
             ...getModelUpstreamExtraHeaders(provider || "", resolvedModel || "", sourceFormat),
           }
         : (() => {
-            const r = resolveModelAlias(modelToCall);
+            const r = resolveModelAlias(modelToCall, { provider, providerAlias: alias });
             return {
               ...getModelUpstreamExtraHeaders(provider || "", modelToCall || "", sourceFormat),
               ...getModelUpstreamExtraHeaders(provider || "", r || "", sourceFormat),

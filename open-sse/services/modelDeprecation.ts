@@ -108,6 +108,27 @@ const BUILT_IN_ALIASES: Record<string, string> = {
 // ── Custom Aliases (persisted via Settings API) ─────────────────────────────
 let _customAliases: Record<string, string> = {};
 
+type ModelAliasScope = {
+  provider?: string | null;
+  providerAlias?: string | null;
+};
+
+function isCrossProviderAlias(resolvedModel: string, scope?: ModelAliasScope): boolean {
+  if (!scope?.provider || typeof resolvedModel !== "string") return false;
+
+  const slashIndex = resolvedModel.indexOf("/");
+  if (slashIndex <= 0) return false;
+
+  const targetProvider = resolvedModel.slice(0, slashIndex).toLowerCase();
+  const allowedProviders = new Set(
+    [scope.provider, scope.providerAlias]
+      .filter((value): value is string => typeof value === "string" && value.trim().length > 0)
+      .map((value) => value.trim().toLowerCase())
+  );
+
+  return allowedProviders.size > 0 && !allowedProviders.has(targetProvider);
+}
+
 /**
  * Set custom aliases (called from settings API or startup).
  */
@@ -137,14 +158,26 @@ export function getAllAliases(): Record<string, string> {
  * @param {string} modelId - The model ID to resolve
  * @returns {string} The resolved model ID, or the original if not deprecated
  */
-export function resolveModelAlias(modelId: string): string {
+export function resolveModelAlias(modelId: string, scope?: ModelAliasScope): string;
+export function resolveModelAlias(modelId: null, scope?: ModelAliasScope): null;
+export function resolveModelAlias(modelId: undefined, scope?: ModelAliasScope): undefined;
+export function resolveModelAlias(
+  modelId: string | null | undefined,
+  scope?: ModelAliasScope
+): string | null | undefined {
   if (!modelId) return modelId;
 
   // Check custom aliases first (higher priority)
-  if (_customAliases[modelId]) return _customAliases[modelId];
+  if (_customAliases[modelId]) {
+    const customAlias = _customAliases[modelId];
+    return isCrossProviderAlias(customAlias, scope) ? modelId : customAlias;
+  }
 
   // Then check built-in
-  if (BUILT_IN_ALIASES[modelId]) return BUILT_IN_ALIASES[modelId];
+  if (BUILT_IN_ALIASES[modelId]) {
+    const builtInAlias = BUILT_IN_ALIASES[modelId];
+    return isCrossProviderAlias(builtInAlias, scope) ? modelId : builtInAlias;
+  }
 
   return modelId;
 }
