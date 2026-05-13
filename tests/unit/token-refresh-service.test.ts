@@ -434,6 +434,7 @@ test("refreshKiroToken uses the AWS OIDC flow when client credentials are presen
         accessToken: "kiro-aws-access",
         refreshToken: "kiro-aws-refresh-next",
         expiresIn: 900,
+        profileArn: "arn:aws:codewhisperer:eu-west-1:123456789012:profile/test-profile",
       });
     },
     async () => {
@@ -452,6 +453,13 @@ test("refreshKiroToken uses the AWS OIDC flow when client credentials are presen
         accessToken: "kiro-aws-access",
         refreshToken: "kiro-aws-refresh-next",
         expiresIn: 900,
+        providerSpecificData: {
+          authMethod: "idc",
+          clientId: "aws-client",
+          clientSecret: "aws-secret",
+          region: "eu-west-1",
+          profileArn: "arn:aws:codewhisperer:eu-west-1:123456789012:profile/test-profile",
+        },
       });
     }
   );
@@ -493,6 +501,11 @@ test("refreshKiroToken uses stored region for AWS OIDC refresh without authMetho
         accessToken: "kiro-aws-access",
         refreshToken: "kiro-aws-refresh-next",
         expiresIn: 900,
+        providerSpecificData: {
+          clientId: "aws-client",
+          clientSecret: "aws-secret",
+          region: "ap-southeast-1",
+        },
       });
     }
   );

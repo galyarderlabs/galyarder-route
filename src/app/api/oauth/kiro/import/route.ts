@@ -44,7 +44,7 @@ export async function POST(request: Request) {
     if (isValidationFailure(validation)) {
       return NextResponse.json({ error: validation.error }, { status: 400 });
     }
-    const { refreshToken } = validation.data;
+    const { refreshToken, profileArn, authMethod, provider } = validation.data;
 
     const kiroService = new KiroService();
 
@@ -55,6 +55,10 @@ export async function POST(request: Request) {
     const tokenData = await runWithProxyContext(proxy, () =>
       kiroService.validateImportToken(refreshToken.trim())
     );
+
+    const importedProfileArn = typeof profileArn === "string" ? profileArn.trim() : "";
+    const resolvedProfileArn = tokenData.profileArn || importedProfileArn || null;
+    const resolvedAuthProvider = provider || "Imported";
 
     // Extract email from JWT if available
     const email = kiroService.extractEmailFromJWT(tokenData.accessToken);
@@ -68,9 +72,9 @@ export async function POST(request: Request) {
       expiresAt: new Date(Date.now() + tokenData.expiresIn * 1000).toISOString(),
       email: email || null,
       providerSpecificData: {
-        profileArn: tokenData.profileArn,
-        authMethod: "imported",
-        provider: "Imported",
+        ...(resolvedProfileArn ? { profileArn: resolvedProfileArn } : {}),
+        authMethod: authMethod || tokenData.authMethod || "imported",
+        provider: resolvedAuthProvider,
       },
       testStatus: "active",
     });
@@ -84,6 +88,7 @@ export async function POST(request: Request) {
         id: connection.id,
         provider: connection.provider,
         email: connection.email,
+        hasProfileArn: Boolean(resolvedProfileArn),
       },
     });
   } catch (error: any) {

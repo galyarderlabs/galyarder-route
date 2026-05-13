@@ -37,6 +37,9 @@ export async function GET(request: Request) {
     // Look for kiro-auth-token.json or any .json file with refreshToken
     let refreshToken = null;
     let foundFile = null;
+    let profileArn = null;
+    let authMethod = null;
+    let authProvider = null;
 
     // First try kiro-auth-token.json
     const preferredTokenFile =
@@ -48,6 +51,9 @@ export async function GET(request: Request) {
         if (data.refreshToken && data.refreshToken.startsWith("aorAAAAAG")) {
           refreshToken = data.refreshToken;
           foundFile = preferredTokenFile;
+          profileArn = typeof data.profileArn === "string" ? data.profileArn : null;
+          authMethod = typeof data.authMethod === "string" ? data.authMethod : null;
+          authProvider = typeof data.provider === "string" ? data.provider : null;
         }
       } catch (error) {
         // Continue to search other files
@@ -67,6 +73,9 @@ export async function GET(request: Request) {
           if (data.refreshToken && data.refreshToken.startsWith("aorAAAAAG")) {
             refreshToken = data.refreshToken;
             foundFile = file;
+            profileArn = typeof data.profileArn === "string" ? data.profileArn : null;
+            authMethod = typeof data.authMethod === "string" ? data.authMethod : null;
+            authProvider = typeof data.provider === "string" ? data.provider : null;
             break;
           }
         } catch (error) {
@@ -87,6 +96,9 @@ export async function GET(request: Request) {
       found: true,
       refreshToken,
       source: foundFile,
+      ...(profileArn ? { profileArn } : {}),
+      ...(authMethod ? { authMethod } : {}),
+      ...(authProvider ? { provider: authProvider } : {}),
     });
   } catch (error) {
     console.log("Kiro auto-import error:", error);

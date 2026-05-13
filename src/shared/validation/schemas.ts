@@ -1264,6 +1264,9 @@ export const cursorImportSchema = z.object({
 
 export const kiroImportSchema = z.object({
   refreshToken: z.string().trim().min(1, "Refresh token is required"),
+  profileArn: z.string().trim().optional(),
+  authMethod: z.string().trim().optional(),
+  provider: z.string().trim().optional(),
 });
 
 export const kiroSocialExchangeSchema = z.object({

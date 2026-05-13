@@ -514,6 +514,8 @@ export async function refreshKiroToken(
     const clientId = providerSpecificData?.clientId;
     const clientSecret = providerSpecificData?.clientSecret;
     const region = providerSpecificData?.region;
+    const baseProviderSpecificData =
+      providerSpecificData && typeof providerSpecificData === "object" ? providerSpecificData : {};
 
     // AWS SSO OIDC (Builder ID or IDC)
     // If clientId and clientSecret exist, assume AWS SSO OIDC (default to builder-id if authMethod not specified)
@@ -552,10 +554,18 @@ export async function refreshKiroToken(
         expiresIn: tokens.expiresIn,
       });
 
+      const nextProviderSpecificData = {
+        ...baseProviderSpecificData,
+        ...(tokens.profileArn ? { profileArn: tokens.profileArn } : {}),
+      };
+
       return {
         accessToken: tokens.accessToken,
         refreshToken: tokens.refreshToken || refreshToken,
         expiresIn: tokens.expiresIn,
+        ...(Object.keys(nextProviderSpecificData).length > 0
+          ? { providerSpecificData: nextProviderSpecificData }
+          : {}),
       };
     }
 
@@ -594,10 +604,18 @@ export async function refreshKiroToken(
       expiresIn: tokens.expiresIn,
     });
 
+    const nextProviderSpecificData = {
+      ...baseProviderSpecificData,
+      ...(tokens.profileArn ? { profileArn: tokens.profileArn } : {}),
+    };
+
     return {
       accessToken: tokens.accessToken,
       refreshToken: tokens.refreshToken || refreshToken,
       expiresIn: tokens.expiresIn,
+      ...(Object.keys(nextProviderSpecificData).length > 0
+        ? { providerSpecificData: nextProviderSpecificData }
+        : {}),
     };
   } catch (error) {
     log?.error?.("TOKEN_REFRESH", `Network error refreshing Kiro token: ${error.message}`);

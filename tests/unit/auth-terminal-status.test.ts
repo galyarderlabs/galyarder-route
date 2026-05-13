@@ -272,3 +272,31 @@ test("markAccountUnavailable keeps oauth-invalid 401 errors non-terminal", async
   assert.equal(after.lastErrorType, "oauth_invalid_token");
   assert.ok(!after.rateLimitedUntil);
 });
+
+test("markAccountUnavailable keeps Codex parse-token 401 errors non-terminal", async () => {
+  await resetStorage();
+
+  const conn = await providersDb.createProviderConnection({
+    provider: "codex",
+    authType: "oauth",
+    accessToken: "codex-access",
+    refreshToken: "codex-refresh",
+    isActive: true,
+    testStatus: "active",
+  });
+
+  const result = await auth.markAccountUnavailable(
+    (conn as any).id,
+    401,
+    '{"detail":"Could not parse your authentication token. Please try signing in again."}',
+    "codex",
+    "gpt-5.3-codex"
+  );
+  const after = await providersDb.getProviderConnectionById((conn as any).id);
+
+  assert.equal(result.shouldFallback, true);
+  assert.equal(result.cooldownMs, 0);
+  assert.equal(after.testStatus, "active");
+  assert.equal(after.lastErrorType, "oauth_invalid_token");
+  assert.ok(!after.rateLimitedUntil);
+});

@@ -401,18 +401,26 @@ export async function checkConnection(conn) {
   }
 
   if (result && result.accessToken) {
+    const currentStatus = String(conn.testStatus || "")
+      .trim()
+      .toLowerCase();
+    const preserveTerminalStatus = currentStatus === "credits_exhausted";
+
     const updateData: any = {
       accessToken: result.accessToken,
       lastHealthCheckAt: now,
-      testStatus: "active",
-      lastError: null,
-      lastErrorAt: null,
-      lastErrorType: null,
-      lastErrorSource: null,
-      errorCode: null,
       expiredRetryCount: null,
       expiredRetryAt: null,
     };
+
+    if (!preserveTerminalStatus) {
+      updateData.testStatus = "active";
+      updateData.lastError = null;
+      updateData.lastErrorAt = null;
+      updateData.lastErrorType = null;
+      updateData.lastErrorSource = null;
+      updateData.errorCode = null;
+    }
 
     if (result.refreshToken) {
       updateData.refreshToken = result.refreshToken;

@@ -32,6 +32,7 @@ export default function KiroAuthModal({
   const [importing, setImporting] = useState(false);
   const [autoDetecting, setAutoDetecting] = useState(false);
   const [autoDetected, setAutoDetected] = useState(false);
+  const [autoImportMetadata, setAutoImportMetadata] = useState<Record<string, string>>({});
 
   // Auto-detect token when import method is selected
   useEffect(() => {
@@ -41,15 +42,30 @@ export default function KiroAuthModal({
       setAutoDetecting(true);
       setError(null);
       setAutoDetected(false);
+      setAutoImportMetadata({});
 
       try {
         const res = await fetch(
           `/api/oauth/kiro/auto-import?targetProvider=${encodeURIComponent(providerId)}`
         );
         const data = await res.json();
+        const detectedMetadata: Record<string, string> = {};
+
+        if (typeof data.profileArn === "string" && data.profileArn.trim()) {
+          detectedMetadata.profileArn = data.profileArn.trim();
+        }
+
+        if (typeof data.authMethod === "string" && data.authMethod.trim()) {
+          detectedMetadata.authMethod = data.authMethod.trim();
+        }
+
+        if (typeof data.provider === "string" && data.provider.trim()) {
+          detectedMetadata.provider = data.provider.trim();
+        }
 
         if (data.found) {
           setRefreshToken(data.refreshToken);
+          setAutoImportMetadata(detectedMetadata);
           setAutoDetected(true);
         } else {
           setError(data.error || "Could not auto-detect token");
@@ -70,12 +86,15 @@ export default function KiroAuthModal({
   };
 
   const handleBack = () => {
+    setAutoImportMetadata({});
     setSelectedMethod(null);
     setError(null);
   };
 
   const handleImportToken = async () => {
-    if (!refreshToken.trim()) {
+    const trimmedRefreshToken = refreshToken.trim();
+
+    if (!trimmedRefreshToken) {
       setError("Please enter a refresh token");
       return;
     }
@@ -89,7 +108,7 @@ export default function KiroAuthModal({
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ refreshToken: refreshToken.trim() }),
+          body: JSON.stringify({ refreshToken: trimmedRefreshToken, ...autoImportMetadata }),
         }
       );
 
@@ -377,7 +396,11 @@ export default function KiroAuthModal({
                   </label>
                   <Input
                     value={refreshToken}
-                    onChange={(e) => setRefreshToken(e.target.value)}
+                    onChange={(e) => {
+                      setRefreshToken(e.target.value);
+                      setAutoImportMetadata({});
+                      setAutoDetected(false);
+                    }}
                     placeholder="Token will be auto-filled..."
                     className="font-mono text-sm"
                   />

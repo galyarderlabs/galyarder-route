@@ -280,6 +280,60 @@ test("checkConnection uses the resolved proxy payload when refreshing tokens", a
   );
 });
 
+test("checkConnection clears a stale banned status after a successful token refresh", async () => {
+  await resetStorage();
+
+  const providerId = "custom-oauth-recovered-ban";
+
+  await withHttpServer(
+    (_req, res) => {
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(
+        JSON.stringify({
+          access_token: "recovered-access-token",
+          refresh_token: "recovered-refresh-token",
+          expires_in: 3600,
+        })
+      );
+    },
+    async (tokenServer) => {
+      await withPatchedProvider(
+        providerId,
+        {
+          tokenUrl: `${tokenServer.url}/token`,
+          clientId: "recovered-client-id",
+          clientSecret: "recovered-client-secret",
+        },
+        async () => {
+          const connection = await providersDb.createProviderConnection({
+            provider: providerId,
+            authType: "oauth",
+            name: "Recovered Account",
+            email: "recovered@example.com",
+            accessToken: "stale-access-token",
+            refreshToken: "refresh-token-123",
+            isActive: true,
+            testStatus: "banned",
+            lastError: "temporary suspension",
+            lastErrorType: "forbidden",
+            errorCode: 403,
+          });
+
+          await tokenHealthCheck.checkConnection(connection);
+
+          const updated = await providersDb.getProviderConnectionById((connection as any).id);
+          assert.equal(updated?.accessToken, "recovered-access-token");
+          assert.equal(updated?.refreshToken, "recovered-refresh-token");
+          assert.equal(updated?.testStatus, "active");
+          assert.equal(updated?.lastError ?? null, null);
+          assert.equal(updated?.lastErrorType ?? null, null);
+          assert.equal(updated?.errorCode ?? null, null);
+        }
+      );
+    }
+  );
+});
+
 test("checkConnection uses the latest stored refresh token instead of a stale sweep snapshot", async () => {
   await resetStorage();
 

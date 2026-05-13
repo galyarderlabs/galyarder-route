@@ -98,6 +98,7 @@ export const CREDITS_EXHAUSTED_SIGNALS = [
 // T11: Signals that indicate OAuth token is invalid/expired (not permanent deactivation)
 export const OAUTH_INVALID_TOKEN_SIGNALS = [
   "invalid authentication credentials",
+  "could not parse your authentication token",
   "oauth 2",
   "login cookie",
   "valid authentication credential",
