@@ -250,6 +250,16 @@ Common deployment docs live under `docs/`:
 - `docs/CLI-TOOLS.md`
 - `docs/MCP-SERVER.md`
 
+## Lineage and attribution
+
+Galyarder Route is a modified derivative of [OmniRoute](https://github.com/diegosouzapw/OmniRoute),
+licensed under MIT. The provider-routing core, format-translation layer, and
+provider catalog originate from that project and have been renamed, rebranded,
+and extended here.
+
+Upstream copyright is retained in [`LICENSE`](LICENSE) alongside the notice for
+Galyarder Labs modifications.
+
 ## License
 
 MIT License. Copyright 2026 Galyarder Labs.
