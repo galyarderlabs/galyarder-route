@@ -1,0 +1,21 @@
+# NOTICE
+
+Galyarder Route
+Copyright (c) 2026 Galyarder Labs
+
+---
+
+## Third-party components
+
+This product includes software developed by third parties.
+
+### OmniRoute
+
+- Source: https://github.com/diegosouzapw/OmniRoute
+- Copyright (c) 2026 diegosouzapw
+- License: MIT
+- Usage: Galyarder Route is a modified derivative of OmniRoute. The
+  provider-routing core, format-translation layer, and provider catalog
+  originate from that project and have been renamed and extended here.
+
+The MIT License text is reproduced in `LICENSE`.
